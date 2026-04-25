@@ -1,0 +1,36 @@
+# ── Core Data Science ──────────────────────────────────────────────
+numpy>=1.26.0
+pandas>=2.2.0
+scipy>=1.13.0
+
+# ── Machine Learning ───────────────────────────────────────────────
+scikit-learn>=1.4.0          # Ridge, GridSearchCV, preprocessing, metrics
+
+# ── Gradient Boosting ──────────────────────────────────────────────
+lightgbm>=4.3.0              # LightGBM (LGB)
+xgboost>=2.0.0               # XGBoost
+
+# ── Time-Series Forecasting ────────────────────────────────────────
+prophet>=1.1.5               # Facebook / Meta Prophet
+
+# ── Quantile / Specialised Regression ─────────────────────────────
+statsmodels>=0.14.1          # QuantReg (quantile regression), ARIMA, etc.
+mapie>=0.8.0                 # Conformal prediction / quantile intervals
+# quantile-forest>=1.3.0     # Quantile Random Forest (uncomment if needed)
+
+# ── Hyperparameter Tuning ──────────────────────────────────────────
+optuna>=3.6.0                # Bayesian hyperparameter optimisation
+
+# ── Visualisation ──────────────────────────────────────────────────
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.20.0
+
+# ── Notebook / Development ─────────────────────────────────────────────────────
+# jupyter>=1.0.0    # Uncomment if needed (requires Windows Long Path enabled)
+# ipykernel>=6.29.0 # Uncomment if needed (requires Windows Long Path enabled)
+tqdm>=4.66.0
+
+# ── Utilities ──────────────────────────────────────────────────────
+joblib>=1.4.0                # Parallel processing / model persistence
+pyarrow>=15.0.0              # Fast Parquet I/O
