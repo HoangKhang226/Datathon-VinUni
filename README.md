@@ -1,7 +1,9 @@
 # Setup virtual environment
+```powershell
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
+```
 
 # Setup jupyter notebook
 In PowerShell admin, run:
@@ -13,4 +15,8 @@ Then:
 .venv\Scripts\pip install jupyter ipykernel
 ```
 
+# Activate
+```powershell
+.venv\Scripts\activate
+```
 
