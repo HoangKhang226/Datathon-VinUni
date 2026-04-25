@@ -5,6 +5,7 @@ import seaborn as sns
 import os
 from pathlib import Path
 
+# read csv files
 df_customers = pd.read_csv("Data/customers.csv")
 df_geography = pd.read_csv("Data/geography.csv")
 df_inventory = pd.read_csv("Data/inventory.csv")

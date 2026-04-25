@@ -13,13 +13,141 @@
 ---
 
 ## Bước 0 — EDA & Phân tích Dữ liệu (60 điểm — Phần 2 đề thi)
+
+### Kết quả EDA thực tế
+
 ---
-- [ ] Xác nhận Revenue có tính mùa vụ rõ ràng (tháng 11, 12, Tết)
-- [ ] Xác định các ngày outlier cần xử lý (cắm cờ hoặc winsorize)
-- [ ] Kiểm tra log-transform có cải thiện phân phối Revenue không
-- [ ] Xác nhận lag nào từ ACF/PACF cần ưu tiên (lag_1, lag_7, lag_365?)
-- [ ] Hiểu rõ missing rate của từng bảng → quyết định bảng nào merge
-- [ ] Xác nhận web_traffic có tương quan với Revenue với lag > 0
+
+#### 0.A Outlier & Phân phối Revenue
+
+| Chỉ số | Giá trị |
+|--------|---------|
+| Q1 | 2.47M VNĐ |
+| Q3 | 5.35M VNĐ |
+| IQR | 2.88M VNĐ |
+| Ngưỡng dưới (Q1 - 1.5×IQR) | **-1.85M** → không có outlier thấp thực sự |
+| Ngưỡng trên (Q3 + 1.5×IQR) | **9.67M** |
+| Số ngày outlier (vượt ngưỡng trên) | **169 / 3833 ngày (4.4%)** |
+
+> ⚠️ **Lưu ý:** Ngưỡng dưới âm (-1.85M) có nghĩa là **không tồn tại outlier thấp** — mọi ngày Revenue đều dương và hợp lý. Các outlier 4.4% đều là **spike cao** (ngày lễ lớn), không phải lỗi dữ liệu.
+
+**→ Quyết định:** Dùng **cắm cờ** (không winsorize) — tạo feature `is_high_revenue_day` để model nhận biết các ngày đặc biệt.
+
+---
+
+#### 0.B Log-transform
+
+| Transform | Skewness | Kurtosis | Shapiro-W p | Đánh giá |
+|-----------|----------|----------|-------------|---------|
+| Original | 1.6700 | 4.0303 | 0.0000 | ❌ Lệch nhiều |
+| **log1p** | **-0.1594** | **0.1891** | **0.1999** | ✅ Gần chuẩn nhất |
+| sqrt | 0.7404 | 0.7572 | 0.0000 | 🟡 Cải thiện nhưng chưa đủ |
+
+> ✅ **Kết luận: Dùng `log1p(Revenue)` làm target khi train Ridge Regression.**
+> - Skewness giảm từ 1.67 → -0.16 (gần chuẩn)
+> - Shapiro-W p = 0.1999 > 0.05 → không bác bỏ chuẩn
+> - Sau khi predict: `np.expm1(pred)` để inverse lại
+> - LGB và XGBoost: có thể dùng target gốc hoặc log1p đều được
+
+---
+
+#### 0.C Lag quan trọng từ ACF/PACF
+
+Tổng số lag có ý nghĩa: **ACF = 198 lag, PACF = 109 lag**
+
+| Lag | ACF | PACF | Kết luận |
+|-----|-----|------|---------|
+| **lag_1** | +0.8654 ✅ | +0.8654 ✅ | 🔴 **Ưu tiên cao nhất** — tương quan trực tiếp rất mạnh |
+| **lag_2** | +0.7350 ✅ | -0.0556 ✅ | 🟡 ACF mạnh nhưng PACF gián tiếp |
+| lag_3 | +0.6214 ✅ | -0.0076 ❌ | Bỏ qua PACF |
+| **lag_6** | +0.4673 ✅ | +0.3778 ✅ | 🟡 Cả hai có ý nghĩa |
+| lag_7 | +0.4917 ✅ | +0.0186 ❌ | ACF có nhưng PACF không — ảnh hưởng gián tiếp qua lag_1 |
+| **lag_14** | +0.4956 ✅ | -0.0582 ✅ | 🟡 Giữ lại |
+| lag_21 | +0.4356 ✅ | +0.0204 ❌ | Bỏ qua |
+| **lag_365** | +0.7380 ✅ | +0.0431 ✅ | 🔴 **Ưu tiên cao** — mùa vụ năm trước |
+
+> ✅ **Lag cần ưu tiên trong feature engineering:** `lag_1`, `lag_2`, `lag_6`, `lag_14`, `lag_365`
+> Lag_7 ACF cao nhưng PACF không có ý nghĩa → ảnh hưởng gián tiếp qua lag_1, vẫn nên giữ vì phổ biến trong time-series tuần.
+
+---
+
+#### 0.D Missing Rate
+
+| Bảng | Kết quả | Quyết định |
+|------|---------|-----------|
+| sales, orders, payments, customers, products, inventory, web_traffic, returns, reviews, shipments, geography | ✅ Không missing | Merge bình thường |
+| **order_items** | 🔴 `promo_id`: 61.3%, `promo_id_2`: 100% | `promo_id` NaN = không dùng promo (bình thường). `promo_id_2` bỏ hẳn |
+| **promotions** | 🔴 `applicable_category`: 80% | NaN = áp dụng tất cả categories (theo đề bài) |
+
+> ✅ **Quyết định:**
+> - `promo_id` NaN → fill bằng `"no_promo"`, tạo feature `has_promo = (promo_id != "no_promo")`
+> - `promo_id_2` → **bỏ hoàn toàn** (100% missing)
+> - `applicable_category` NaN → fill `"all"` theo đúng ý nghĩa nghiệp vụ
+
+---
+
+#### 0.E Web Traffic Coverage
+
+| Chỉ số | Giá trị |
+|--------|---------|
+| Số ngày trong sales | 3,833 ngày |
+| Số ngày trong web_traffic | 3,652 ngày |
+| Missing sessions sau merge | **181 ngày (4.7%)** |
+
+> ⚠️ **181 ngày không có web_traffic** (web_traffic bắt đầu muộn hơn sales hoặc có ngày bị thiếu).
+> **→ Xử lý:** Fill NaN bằng `lag_365` (cùng kỳ năm trước). Nếu vẫn NaN, fill bằng median.
+
+---
+
+#### 0.F Tính mùa vụ (từ biểu đồ)
+
+Từ biểu đồ **"Revenue theo Tháng — So sánh từng Năm"**:
+
+| Quan sát | Chi tiết |
+|---------|---------|
+| **Đỉnh rõ ràng** | T3–T5 (Quý 1 cuối + Quý 2 đầu) — spike đồng nhất qua các năm |
+| **Đáy rõ ràng** | T11–T12 — Revenue thấp nhất (ngược với kỳ vọng về 11.11/12.12) |
+| **Tính mùa vụ** | Có, pattern lặp lại rõ qua các năm → cần Fourier features |
+| **Xu hướng tăng** | Revenue tổng thể tăng từ 2012 → 2019, ổn định 2019–2022 |
+
+> ✅ **Lưu ý đặc biệt:** T11–T12 thấp trái với kỳ vọng — có thể do dữ liệu aggregate theo tháng làm "loãng" spike 11.11, 12.12. Cần tạo feature ngày cụ thể (`is_1111`, `is_1212`) thay vì chỉ dùng tháng.
+
+#### 0.G Cross-Correlation Web Traffic → Revenue
+
+```
+                  lag_0   lag_1   lag_2   lag_3   lag_5   lag_7  lag_14  lag_30
+avg_bounce_rate -0.0206 -0.0173 -0.0016  0.0030  0.0130 -0.0146 -0.0235 -0.0175
+avg_session_dur -0.0256 -0.0214 -0.0262 -0.0087 -0.0004 -0.0069 -0.0035 -0.0150
+page_views       0.3016  0.3055  0.2949  0.2846  0.2863  0.2865  0.2643  0.1994
+sessions         0.3211  0.3216  0.3159  0.3119  0.3129  0.3092  0.2885  0.2132
+unique_visitors  0.3188  0.3185  0.3113  0.3046  0.3093  0.3073  0.2870  0.2149
+```
+
+**Phân tích:**
+
+| Feature | Correlation | Nhận xét | Quyết định |
+|---------|------------|---------|-----------|
+| `sessions` | ~0.32 | Tương quan vừa, ổn định qua các lag | ✅ Giữ làm feature |
+| `unique_visitors` | ~0.32 | Tương tự sessions, không cần cả hai | ✅ Giữ 1 trong 2 |
+| `page_views` | ~0.30 | Tương quan vừa | ✅ Giữ làm feature |
+| `avg_bounce_rate` | ~-0.02 | Gần bằng 0 | ❌ Bỏ |
+| `avg_session_dur` | ~-0.02 | Gần bằng 0 | ❌ Bỏ |
+
+> ⚠️ **Lưu ý quan trọng — Không phải leading indicator:**
+> Correlation hầu như không giảm từ lag_0 (0.321) đến lag_7 (0.309) → `sessions` hôm nay **không dự báo revenue ngày mai tốt hơn cùng ngày**. Điều này cho thấy cả hai cùng bị drive bởi **seasonality chung** (tháng cao điểm → traffic & revenue đều tăng).
+>
+> **→ Hệ quả thực tế:** Không thể dùng web traffic như một "tín hiệu dẫn trước" (leading signal). Chỉ dùng làm feature bổ trợ cùng ngày — và với tập test 2023-2024 sẽ phải fill bằng lag_365.
+
+---
+
+### Checklist EDA ✅
+
+- [x] Xác nhận Revenue có tính mùa vụ — **đỉnh T3-T5, đáy T11-T12**
+- [x] Outlier: 169 ngày (4.4%) đều là spike cao → **cắm cờ, không winsorize**
+- [x] Log-transform: **log1p cải thiện mạnh** (skew 1.67 → -0.16), dùng cho Ridge
+- [x] Lag ưu tiên: **lag_1, lag_2, lag_6, lag_14, lag_365**
+- [x] Missing rate: chỉ `order_items.promo_id_2` (100%) cần bỏ; còn lại xử lý được
+- [x] Web traffic cross-correlation: sessions/visitors/page_views r≈0.32 (**giữ**); bounce_rate/session_dur r≈0 (**bỏ**); không phải leading indicator → dùng cùng ngày + fill lag_365
 
 ---
 
