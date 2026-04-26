@@ -354,7 +354,5 @@ if __name__ == "__main__":
     features   = FeatureEngineer(data)
 
     df   = features.build()
-    feat_cols = features.get_feature_cols()
-    
     fast_check_features(df)
 
