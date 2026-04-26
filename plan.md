@@ -20,14 +20,14 @@
 
 #### 0.A Outlier & Phân phối Revenue
 
-| Chỉ số | Giá trị |
-|--------|---------|
-| Q1 | 2.47M VNĐ |
-| Q3 | 5.35M VNĐ |
-| IQR | 2.88M VNĐ |
-| Ngưỡng dưới (Q1 - 1.5×IQR) | **-1.85M** → không có outlier thấp thực sự |
-| Ngưỡng trên (Q3 + 1.5×IQR) | **9.67M** |
-| Số ngày outlier (vượt ngưỡng trên) | **169 / 3833 ngày (4.4%)** |
+| Chỉ số                             | Giá trị                                    |
+| ---------------------------------- | ------------------------------------------ |
+| Q1                                 | 2.47M VNĐ                                  |
+| Q3                                 | 5.35M VNĐ                                  |
+| IQR                                | 2.88M VNĐ                                  |
+| Ngưỡng dưới (Q1 - 1.5×IQR)         | **-1.85M** → không có outlier thấp thực sự |
+| Ngưỡng trên (Q3 + 1.5×IQR)         | **9.67M**                                  |
+| Số ngày outlier (vượt ngưỡng trên) | **169 / 3833 ngày (4.4%)**                 |
 
 > ⚠️ **Lưu ý:** Ngưỡng dưới âm (-1.85M) có nghĩa là **không tồn tại outlier thấp** — mọi ngày Revenue đều dương và hợp lý. Các outlier 4.4% đều là **spike cao** (ngày lễ lớn), không phải lỗi dữ liệu.
 
@@ -37,13 +37,14 @@
 
 #### 0.B Log-transform
 
-| Transform | Skewness | Kurtosis | Shapiro-W p | Đánh giá |
-|-----------|----------|----------|-------------|---------|
-| Original | 1.6700 | 4.0303 | 0.0000 | ❌ Lệch nhiều |
-| **log1p** | **-0.1594** | **0.1891** | **0.1999** | ✅ Gần chuẩn nhất |
-| sqrt | 0.7404 | 0.7572 | 0.0000 | 🟡 Cải thiện nhưng chưa đủ |
+| Transform | Skewness    | Kurtosis   | Shapiro-W p | Đánh giá                   |
+| --------- | ----------- | ---------- | ----------- | -------------------------- |
+| Original  | 1.6700      | 4.0303     | 0.0000      | ❌ Lệch nhiều              |
+| **log1p** | **-0.1594** | **0.1891** | **0.1999**  | ✅ Gần chuẩn nhất          |
+| sqrt      | 0.7404      | 0.7572     | 0.0000      | 🟡 Cải thiện nhưng chưa đủ |
 
 > ✅ **Kết luận: Dùng `log1p(Revenue)` làm target khi train Ridge Regression.**
+>
 > - Skewness giảm từ 1.67 → -0.16 (gần chuẩn)
 > - Shapiro-W p = 0.1999 > 0.05 → không bác bỏ chuẩn
 > - Sau khi predict: `np.expm1(pred)` để inverse lại
@@ -55,16 +56,16 @@
 
 Tổng số lag có ý nghĩa: **ACF = 198 lag, PACF = 109 lag**
 
-| Lag | ACF | PACF | Kết luận |
-|-----|-----|------|---------|
-| **lag_1** | +0.8654 ✅ | +0.8654 ✅ | 🔴 **Ưu tiên cao nhất** — tương quan trực tiếp rất mạnh |
-| **lag_2** | +0.7350 ✅ | -0.0556 ✅ | 🟡 ACF mạnh nhưng PACF gián tiếp |
-| lag_3 | +0.6214 ✅ | -0.0076 ❌ | Bỏ qua PACF |
-| **lag_6** | +0.4673 ✅ | +0.3778 ✅ | 🟡 Cả hai có ý nghĩa |
-| lag_7 | +0.4917 ✅ | +0.0186 ❌ | ACF có nhưng PACF không — ảnh hưởng gián tiếp qua lag_1 |
-| **lag_14** | +0.4956 ✅ | -0.0582 ✅ | 🟡 Giữ lại |
-| lag_21 | +0.4356 ✅ | +0.0204 ❌ | Bỏ qua |
-| **lag_365** | +0.7380 ✅ | +0.0431 ✅ | 🔴 **Ưu tiên cao** — mùa vụ năm trước |
+| Lag         | ACF        | PACF       | Kết luận                                                |
+| ----------- | ---------- | ---------- | ------------------------------------------------------- |
+| **lag_1**   | +0.8654 ✅ | +0.8654 ✅ | 🔴 **Ưu tiên cao nhất** — tương quan trực tiếp rất mạnh |
+| **lag_2**   | +0.7350 ✅ | -0.0556 ✅ | 🟡 ACF mạnh nhưng PACF gián tiếp                        |
+| lag_3       | +0.6214 ✅ | -0.0076 ❌ | Bỏ qua PACF                                             |
+| **lag_6**   | +0.4673 ✅ | +0.3778 ✅ | 🟡 Cả hai có ý nghĩa                                    |
+| lag_7       | +0.4917 ✅ | +0.0186 ❌ | ACF có nhưng PACF không — ảnh hưởng gián tiếp qua lag_1 |
+| **lag_14**  | +0.4956 ✅ | -0.0582 ✅ | 🟡 Giữ lại                                              |
+| lag_21      | +0.4356 ✅ | +0.0204 ❌ | Bỏ qua                                                  |
+| **lag_365** | +0.7380 ✅ | +0.0431 ✅ | 🔴 **Ưu tiên cao** — mùa vụ năm trước                   |
 
 > ✅ **Lag cần ưu tiên trong feature engineering:** `lag_1`, `lag_2`, `lag_6`, `lag_14`, `lag_365`
 > Lag_7 ACF cao nhưng PACF không có ý nghĩa → ảnh hưởng gián tiếp qua lag_1, vẫn nên giữ vì phổ biến trong time-series tuần.
@@ -73,13 +74,14 @@ Tổng số lag có ý nghĩa: **ACF = 198 lag, PACF = 109 lag**
 
 #### 0.D Missing Rate
 
-| Bảng | Kết quả | Quyết định |
-|------|---------|-----------|
-| sales, orders, payments, customers, products, inventory, web_traffic, returns, reviews, shipments, geography | ✅ Không missing | Merge bình thường |
-| **order_items** | 🔴 `promo_id`: 61.3%, `promo_id_2`: 100% | `promo_id` NaN = không dùng promo (bình thường). `promo_id_2` bỏ hẳn |
-| **promotions** | 🔴 `applicable_category`: 80% | NaN = áp dụng tất cả categories (theo đề bài) |
+| Bảng                                                                                                         | Kết quả                                  | Quyết định                                                           |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- | -------------------------------------------------------------------- |
+| sales, orders, payments, customers, products, inventory, web_traffic, returns, reviews, shipments, geography | ✅ Không missing                         | Merge bình thường                                                    |
+| **order_items**                                                                                              | 🔴 `promo_id`: 61.3%, `promo_id_2`: 100% | `promo_id` NaN = không dùng promo (bình thường). `promo_id_2` bỏ hẳn |
+| **promotions**                                                                                               | 🔴 `applicable_category`: 80%            | NaN = áp dụng tất cả categories (theo đề bài)                        |
 
 > ✅ **Quyết định:**
+>
 > - `promo_id` NaN → fill bằng `"no_promo"`, tạo feature `has_promo = (promo_id != "no_promo")`
 > - `promo_id_2` → **bỏ hoàn toàn** (100% missing)
 > - `applicable_category` NaN → fill `"all"` theo đúng ý nghĩa nghiệp vụ
@@ -88,10 +90,10 @@ Tổng số lag có ý nghĩa: **ACF = 198 lag, PACF = 109 lag**
 
 #### 0.E Web Traffic Coverage
 
-| Chỉ số | Giá trị |
-|--------|---------|
-| Số ngày trong sales | 3,833 ngày |
-| Số ngày trong web_traffic | 3,652 ngày |
+| Chỉ số                     | Giá trị             |
+| -------------------------- | ------------------- |
+| Số ngày trong sales        | 3,833 ngày          |
+| Số ngày trong web_traffic  | 3,652 ngày          |
 | Missing sessions sau merge | **181 ngày (4.7%)** |
 
 > ⚠️ **181 ngày không có web_traffic** (web_traffic bắt đầu muộn hơn sales hoặc có ngày bị thiếu).
@@ -103,12 +105,12 @@ Tổng số lag có ý nghĩa: **ACF = 198 lag, PACF = 109 lag**
 
 Từ biểu đồ **"Revenue theo Tháng — So sánh từng Năm"**:
 
-| Quan sát | Chi tiết |
-|---------|---------|
-| **Đỉnh rõ ràng** | T3–T5 (Quý 1 cuối + Quý 2 đầu) — spike đồng nhất qua các năm |
-| **Đáy rõ ràng** | T11–T12 — Revenue thấp nhất (ngược với kỳ vọng về 11.11/12.12) |
-| **Tính mùa vụ** | Có, pattern lặp lại rõ qua các năm → cần Fourier features |
-| **Xu hướng tăng** | Revenue tổng thể tăng từ 2012 → 2019, ổn định 2019–2022 |
+| Quan sát          | Chi tiết                                                       |
+| ----------------- | -------------------------------------------------------------- |
+| **Đỉnh rõ ràng**  | T3–T5 (Quý 1 cuối + Quý 2 đầu) — spike đồng nhất qua các năm   |
+| **Đáy rõ ràng**   | T11–T12 — Revenue thấp nhất (ngược với kỳ vọng về 11.11/12.12) |
+| **Tính mùa vụ**   | Có, pattern lặp lại rõ qua các năm → cần Fourier features      |
+| **Xu hướng tăng** | Revenue tổng thể tăng từ 2012 → 2019, ổn định 2019–2022        |
 
 > ✅ **Lưu ý đặc biệt:** T11–T12 thấp trái với kỳ vọng — có thể do dữ liệu aggregate theo tháng làm "loãng" spike 11.11, 12.12. Cần tạo feature ngày cụ thể (`is_1111`, `is_1212`) thay vì chỉ dùng tháng.
 
@@ -125,13 +127,13 @@ unique_visitors  0.3188  0.3185  0.3113  0.3046  0.3093  0.3073  0.2870  0.2149
 
 **Phân tích:**
 
-| Feature | Correlation | Nhận xét | Quyết định |
-|---------|------------|---------|-----------|
-| `sessions` | ~0.32 | Tương quan vừa, ổn định qua các lag | ✅ Giữ làm feature |
-| `unique_visitors` | ~0.32 | Tương tự sessions, không cần cả hai | ✅ Giữ 1 trong 2 |
-| `page_views` | ~0.30 | Tương quan vừa | ✅ Giữ làm feature |
-| `avg_bounce_rate` | ~-0.02 | Gần bằng 0 | ❌ Bỏ |
-| `avg_session_dur` | ~-0.02 | Gần bằng 0 | ❌ Bỏ |
+| Feature           | Correlation | Nhận xét                            | Quyết định         |
+| ----------------- | ----------- | ----------------------------------- | ------------------ |
+| `sessions`        | ~0.32       | Tương quan vừa, ổn định qua các lag | ✅ Giữ làm feature |
+| `unique_visitors` | ~0.32       | Tương tự sessions, không cần cả hai | ✅ Giữ 1 trong 2   |
+| `page_views`      | ~0.30       | Tương quan vừa                      | ✅ Giữ làm feature |
+| `avg_bounce_rate` | ~-0.02      | Gần bằng 0                          | ❌ Bỏ              |
+| `avg_session_dur` | ~-0.02      | Gần bằng 0                          | ❌ Bỏ              |
 
 > ⚠️ **Lưu ý quan trọng — Không phải leading indicator:**
 > Correlation hầu như không giảm từ lag_0 (0.321) đến lag_7 (0.309) → `sessions` hôm nay **không dự báo revenue ngày mai tốt hơn cùng ngày**. Điều này cho thấy cả hai cùng bị drive bởi **seasonality chung** (tháng cao điểm → traffic & revenue đều tăng).
@@ -177,24 +179,24 @@ df_reviews     = pd.read_csv("Data/reviews.csv",     parse_dates=["review_date"]
 
 > Nguồn: `sales.csv` — tự tính từ cột Date, không có nguy cơ data leakage
 
-| Feature | Code | Ghi chú |
-|---------|------|---------|
-| `year` | `df.Date.dt.year` | |
-| `month` | `df.Date.dt.month` | |
-| `day` | `df.Date.dt.day` | |
-| `day_of_week` | `df.Date.dt.dayofweek` | 0=Thứ 2, 6=Chủ nhật |
-| `day_of_year` | `df.Date.dt.dayofyear` | |
-| `week_of_year` | `df.Date.dt.isocalendar().week` | |
-| `quarter` | `df.Date.dt.quarter` | |
-| `is_weekend` | `dow >= 5` | |
-| `is_month_end` | `df.Date.dt.is_month_end` | |
-| `is_month_start` | `df.Date.dt.is_month_start` | |
-| `is_year_end` | `month==12 & day==31` | |
-| `is_year_start` | `month==1 & day==1` | |
-| `sin_month` | `sin(2π × month / 12)` | Fourier encoding mùa vụ |
-| `cos_month` | `cos(2π × month / 12)` | Fourier encoding mùa vụ |
-| `sin_dow` | `sin(2π × dow / 7)` | Fourier encoding tuần |
-| `cos_dow` | `cos(2π × dow / 7)` | Fourier encoding tuần |
+| Feature          | Code                            | Ghi chú                 |
+| ---------------- | ------------------------------- | ----------------------- |
+| `year`           | `df.Date.dt.year`               |                         |
+| `month`          | `df.Date.dt.month`              |                         |
+| `day`            | `df.Date.dt.day`                |                         |
+| `day_of_week`    | `df.Date.dt.dayofweek`          | 0=Thứ 2, 6=Chủ nhật     |
+| `day_of_year`    | `df.Date.dt.dayofyear`          |                         |
+| `week_of_year`   | `df.Date.dt.isocalendar().week` |                         |
+| `quarter`        | `df.Date.dt.quarter`            |                         |
+| `is_weekend`     | `dow >= 5`                      |                         |
+| `is_month_end`   | `df.Date.dt.is_month_end`       |                         |
+| `is_month_start` | `df.Date.dt.is_month_start`     |                         |
+| `is_year_end`    | `month==12 & day==31`           |                         |
+| `is_year_start`  | `month==1 & day==1`             |                         |
+| `sin_month`      | `sin(2π × month / 12)`          | Fourier encoding mùa vụ |
+| `cos_month`      | `cos(2π × month / 12)`          | Fourier encoding mùa vụ |
+| `sin_dow`        | `sin(2π × dow / 7)`             | Fourier encoding tuần   |
+| `cos_dow`        | `cos(2π × dow / 7)`             | Fourier encoding tuần   |
 
 ---
 
@@ -204,51 +206,52 @@ df_reviews     = pd.read_csv("Data/reviews.csv",     parse_dates=["review_date"]
 
 **Lag Features:**
 
-| Feature | Lag | Ý nghĩa |
-|---------|-----|---------|
-| `revenue_lag_1` | 1 ngày | Doanh thu hôm qua |
-| `revenue_lag_7` | 7 ngày | Cùng thứ tuần trước |
-| `revenue_lag_14` | 14 ngày | Cùng thứ 2 tuần trước |
-| `revenue_lag_30` | 30 ngày | Cùng kỳ tháng trước |
-| `revenue_lag_90` | 90 ngày | Cùng kỳ quý trước |
-| `revenue_lag_365` | 365 ngày | Cùng ngày năm trước |
-| `cogs_lag_1` | 1 ngày | |
-| `cogs_lag_7` | 7 ngày | |
-| `cogs_lag_30` | 30 ngày | |
-| `cogs_lag_365` | 365 ngày | |
+| Feature           | Lag      | Ý nghĩa               |
+| ----------------- | -------- | --------------------- |
+| `revenue_lag_1`   | 1 ngày   | Doanh thu hôm qua     |
+| `revenue_lag_7`   | 7 ngày   | Cùng thứ tuần trước   |
+| `revenue_lag_14`  | 14 ngày  | Cùng thứ 2 tuần trước |
+| `revenue_lag_30`  | 30 ngày  | Cùng kỳ tháng trước   |
+| `revenue_lag_90`  | 90 ngày  | Cùng kỳ quý trước     |
+| `revenue_lag_365` | 365 ngày | Cùng ngày năm trước   |
+| `cogs_lag_1`      | 1 ngày   |                       |
+| `cogs_lag_7`      | 7 ngày   |                       |
+| `cogs_lag_30`     | 30 ngày  |                       |
+| `cogs_lag_365`    | 365 ngày |                       |
 
 **Rolling Mean / Std Features:**
 
-| Feature | Window | Ý nghĩa |
-|---------|--------|---------|
-| `revenue_roll_mean_7` | 7 ngày | Xu hướng ngắn hạn |
-| `revenue_roll_mean_14` | 14 ngày | |
+| Feature                | Window  | Ý nghĩa            |
+| ---------------------- | ------- | ------------------ |
+| `revenue_roll_mean_7`  | 7 ngày  | Xu hướng ngắn hạn  |
+| `revenue_roll_mean_14` | 14 ngày |                    |
 | `revenue_roll_mean_30` | 30 ngày | Xu hướng trung hạn |
-| `revenue_roll_mean_90` | 90 ngày | Xu hướng dài hạn |
-| `revenue_roll_std_7` | 7 ngày | Độ biến động |
-| `revenue_roll_std_30` | 30 ngày | |
-| `cogs_roll_mean_7` | 7 ngày | |
-| `cogs_roll_mean_30` | 30 ngày | |
+| `revenue_roll_mean_90` | 90 ngày | Xu hướng dài hạn   |
+| `revenue_roll_std_7`   | 7 ngày  | Độ biến động       |
+| `revenue_roll_std_30`  | 30 ngày |                    |
+| `cogs_roll_mean_7`     | 7 ngày  |                    |
+| `cogs_roll_mean_30`    | 30 ngày |                    |
 
 > ⚠️ **Quan trọng:** Phải dùng `.shift(1)` trước khi rolling để đảm bảo không dùng giá trị ngày T khi tính feature cho ngày T.
+>
 > ```python
 > df["revenue_roll_mean_7"] = df["Revenue"].shift(1).rolling(7).mean()
 > ```
 
 **Exponential Weighted Mean:**
 
-| Feature | Span | Ý nghĩa |
-|---------|------|---------|
-| `revenue_ewm_7` | 7 | Trung bình mũ — nhạy hơn với biến động gần đây |
-| `revenue_ewm_30` | 30 | |
+| Feature          | Span | Ý nghĩa                                        |
+| ---------------- | ---- | ---------------------------------------------- |
+| `revenue_ewm_7`  | 7    | Trung bình mũ — nhạy hơn với biến động gần đây |
+| `revenue_ewm_30` | 30   |                                                |
 
 **Difference Features:**
 
-| Feature | Công thức | Ý nghĩa |
-|---------|-----------|---------|
-| `revenue_diff_1` | `Revenue - lag_1` | Biến động so với hôm qua |
-| `revenue_diff_7` | `Revenue - lag_7` | Biến động so với tuần trước |
-| `revenue_pct_change_7` | `(lag_1 - lag_7) / lag_7` | % thay đổi |
+| Feature                | Công thức                 | Ý nghĩa                     |
+| ---------------------- | ------------------------- | --------------------------- |
+| `revenue_diff_1`       | `Revenue - lag_1`         | Biến động so với hôm qua    |
+| `revenue_diff_7`       | `Revenue - lag_7`         | Biến động so với tuần trước |
+| `revenue_pct_change_7` | `(lag_1 - lag_7) / lag_7` | % thay đổi                  |
 
 ---
 
@@ -258,18 +261,18 @@ df_reviews     = pd.read_csv("Data/reviews.csv",     parse_dates=["review_date"]
 
 **Sự kiện thương mại điện tử Việt Nam:**
 
-| Feature | Điều kiện | Ghi chú |
-|---------|-----------|---------|
-| `is_tet_period` | Khoảng -15 đến +5 ngày so với Tết âm lịch | Dùng thư viện `holidays` hoặc hard-code |
-| `days_to_tet` | Số ngày đến Tết gần nhất | Âm nếu đã qua Tết |
-| `is_1111` | `month==11 & day==11` | Ngày hội mua sắm |
-| `is_1212` | `month==12 & day==12` | |
-| `is_black_friday` | Thứ 6 tuần 4 tháng 11 | |
-| `is_mid_year_sale` | `month==6 & day >= 25` hoặc `month==7 & day <= 5` | |
-| `is_back_to_school` | `month==8` | |
-| `is_christmas` | `month==12 & day >= 23` | |
-| `is_valentines` | `month==2 & day >= 10 & day <= 14` | |
-| `is_womens_day` | `month==3 & day==8` | |
+| Feature             | Điều kiện                                         | Ghi chú                                 |
+| ------------------- | ------------------------------------------------- | --------------------------------------- |
+| `is_tet_period`     | Khoảng -15 đến +5 ngày so với Tết âm lịch         | Dùng thư viện `holidays` hoặc hard-code |
+| `days_to_tet`       | Số ngày đến Tết gần nhất                          | Âm nếu đã qua Tết                       |
+| `is_1111`           | `month==11 & day==11`                             | Ngày hội mua sắm                        |
+| `is_1212`           | `month==12 & day==12`                             |                                         |
+| `is_black_friday`   | Thứ 6 tuần 4 tháng 11                             |                                         |
+| `is_mid_year_sale`  | `month==6 & day >= 25` hoặc `month==7 & day <= 5` |                                         |
+| `is_back_to_school` | `month==8`                                        |                                         |
+| `is_christmas`      | `month==12 & day >= 23`                           |                                         |
+| `is_valentines`     | `month==2 & day >= 10 & day <= 14`                |                                         |
+| `is_womens_day`     | `month==3 & day==8`                               |                                         |
 
 ---
 
@@ -317,12 +320,14 @@ daily_reviews = df_reviews.groupby("review_date").agg(
 ```
 
 **Merge tất cả vào df chính:**
+
 ```python
 for dft in [daily_orders, daily_items, daily_pay, daily_returns, daily_reviews]:
     df = df.merge(dft, on="Date", how="left")
 ```
 
 **Fill NaN cho tập test (lag_365):**
+
 ```python
 transaction_cols = ["daily_order_count", "daily_cancel_rate", "daily_items_sold", ...]
 for col in transaction_cols:
@@ -388,229 +393,260 @@ promo_features = df.Date.apply(lambda d: get_active_promos(d, df_promotions))
 df = pd.concat([df, promo_features], axis=1)
 ```
 
+## BƯỚC 2 — TRAIN / VALIDATION SPLIT (CHUẨN HÓA LẠI)
+
+### Mục tiêu
+
+- **Train:** học quy luật quá khứ (2012–2021)
+- **Validation:** mô phỏng “tương lai chưa thấy” (2022)
+- **Tuyệt đối không leak** thông tin 2022 vào training
+
 ---
 
-## Bước 2 — Chia Train / Validation
+### Split theo thời gian
 
 ```python
 TRAIN_END = "2021-12-31"
 VAL_START = "2022-01-01"
 VAL_END   = "2022-12-31"
+```
 
-# Drop NaN từ các lag features đầu chuỗi
-df = df.dropna(subset=["revenue_lag_365"])  # lag lớn nhất → đảm bảo tất cả lag đều có
+---
 
-FEATURES = [
-    # Time
-    "year","month","day","day_of_week","day_of_year","week_of_year","quarter",
-    "is_weekend","is_month_end","is_month_start","is_year_end","is_year_start",
-    "sin_month","cos_month","sin_dow","cos_dow",
-    # Lag
-    "revenue_lag_1","revenue_lag_7","revenue_lag_14","revenue_lag_30",
-    "revenue_lag_90","revenue_lag_365",
-    "cogs_lag_1","cogs_lag_7","cogs_lag_30","cogs_lag_365",
-    # Rolling
-    "revenue_roll_mean_7","revenue_roll_mean_14","revenue_roll_mean_30","revenue_roll_mean_90",
-    "revenue_roll_std_7","revenue_roll_std_30",
-    "cogs_roll_mean_7","cogs_roll_mean_30",
-    "revenue_ewm_7","revenue_ewm_30",
-    "revenue_diff_1","revenue_diff_7","revenue_pct_change_7",
-    # Seasonal
-    "is_tet_period","days_to_tet","is_1111","is_1212","is_black_friday","is_christmas",
-    # Transaction
-    "daily_order_count","daily_cancel_rate","daily_items_sold",
-    "daily_discount_total","daily_promo_rate","daily_avg_payment",
-    "daily_return_count","daily_avg_rating",
-    # Web
-    "daily_sessions","daily_unique_visitors","daily_avg_bounce_rate",
-    # Inventory
-    "monthly_total_stock","monthly_avg_fill_rate","monthly_avg_sell_through",
-    # Promo
-    "active_promo_count","avg_discount_value","has_pct_promo","has_fixed_promo",
-]
+### Xử lý dữ liệu (quan trọng để tránh leakage từ lag)
 
-TARGETS = ["Revenue", "COGS"]
+```python
+df = df.dropna(subset=["revenue_lag_365"])
+```
 
+**Ý nghĩa:**
+
+- Lag 365 = cần ít nhất 1 năm dữ liệu quá khứ
+- Nếu không drop → model “học giả” (sai time alignment)
+
+---
+
+### Tách dataset
+
+```python
 df_train = df[df.Date <= TRAIN_END]
 df_val   = df[(df.Date >= VAL_START) & (df.Date <= VAL_END)]
-
-X_train, y_train = df_train[FEATURES], df_train[TARGETS]
-X_val,   y_val   = df_val[FEATURES],   df_val[TARGETS]
 ```
 
 ---
 
-## Bước 3 — Train Ensemble Model
+### Feature set (time encoded tabular features)
 
-Dùng kiến trúc **Stacking Ensemble** gồm 3 base models + 1 meta-model:
+| Feature            | Ý nghĩa                                             |
+| ------------------ | --------------------------------------------------- |
+| `revenue_lag_1`    | doanh thu ngày trước đó (1-day lag)                 |
+| `revenue_lag_7`    | doanh thu cách 7 ngày (tuần trước)                  |
+| `revenue_lag_365`  | doanh thu cùng kỳ năm trước (seasonality yearly)    |
+| `rolling_mean_7`   | trung bình doanh thu 7 ngày gần nhất (smooth trend) |
+| `month`            | tháng trong năm (seasonality theo tháng)            |
+| `weekday`          | thứ trong tuần (pattern theo ngày)                  |
+| `promo_flag`       | có chạy khuyến mãi hay không (0/1 binary feature)   |
+| `traffic_sessions` | số lượt truy cập (proxy cho demand / interest)      |
 
-```
-Base Models:
-├── LightGBM (LGB)    ← mạnh nhất với tabular + time-series
-├── XGBoost           ← bổ trợ LGB, bắt được pattern khác
-└── Ridge Regression  ← tuyến tính, ổn định, không overfit
+---
 
-Meta-model (Level 2):
-└── Ridge Regression  ← kết hợp predictions của 3 base models
-```
+### Ý nghĩa quan trọng
 
-### 3.1 Tinh chỉnh tham số với Optuna
+Đây **KHÔNG** phải time-series model thuần. Mà là:
 
-> Train riêng cho **Revenue** và **COGS** (2 target riêng biệt)
+- Time-series → transformed into supervised learning dataset
+- Không shuffle
+- Validation = future simulation
+- Feature engineering phải được “freeze trước split”
+
+---
+
+## BƯỚC 3 — STACKING ENSEMBLE (CHUẨN HÓA LOGIC)
+
+### 3.1 Kiến trúc
+
+- **Level 0 (Base Models)**
+  - LightGBM
+  - XGBoost
+  - Ridge
+- **Level 1 (Meta Model)**
+  - Ridge (blending)
+
+---
+
+### 3.2 Train Base Models
 
 ```python
-import optuna
-from lightgbm import LGBMRegressor
-from xgboost import XGBRegressor
-from sklearn.linear_model import Ridge
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-
-def objective_lgb(trial, X_tr, y_tr, X_val, y_val):
-    params = {
-        "n_estimators":     trial.suggest_int("n_estimators", 500, 3000),
-        "learning_rate":    trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
-        "num_leaves":       trial.suggest_int("num_leaves", 31, 255),
-        "max_depth":        trial.suggest_int("max_depth", 4, 12),
-        "min_child_samples":trial.suggest_int("min_child_samples", 10, 100),
-        "subsample":        trial.suggest_float("subsample", 0.6, 1.0),
-        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-        "reg_alpha":        trial.suggest_float("reg_alpha", 1e-4, 10, log=True),
-        "reg_lambda":       trial.suggest_float("reg_lambda", 1e-4, 10, log=True),
-        "random_state": 42,
-        "verbosity": -1,
-    }
-    model = LGBMRegressor(**params)
-    model.fit(X_tr, y_tr,
-              eval_set=[(X_val, y_val)],
-              callbacks=[lgb.early_stopping(50, verbose=False)])
-    preds = model.predict(X_val)
-    return mean_absolute_error(y_val, preds)
-
-# Chạy Optuna (Revenue)
-study_lgb_rev = optuna.create_study(direction="minimize")
-study_lgb_rev.optimize(
-    lambda trial: objective_lgb(trial, X_train["Revenue"], y_train["Revenue"], ...),
-    n_trials=100,
-    show_progress_bar=True
-)
-best_lgb_rev_params = study_lgb_rev.best_params
-
-# Tương tự cho XGBoost và COGS
+lgb_model.fit(X_train, y_train)
+xgb_model.fit(X_train, y_train)
+ridge_model.fit(X_train, y_train)
 ```
 
-**Tham số Optuna cho XGBoost:**
-```python
-params_xgb = {
-    "n_estimators":      trial.suggest_int("n_estimators", 500, 3000),
-    "learning_rate":     trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
-    "max_depth":         trial.suggest_int("max_depth", 4, 10),
-    "min_child_weight":  trial.suggest_int("min_child_weight", 1, 10),
-    "subsample":         trial.suggest_float("subsample", 0.6, 1.0),
-    "colsample_bytree":  trial.suggest_float("colsample_bytree", 0.6, 1.0),
-    "gamma":             trial.suggest_float("gamma", 0, 5),
-    "reg_alpha":         trial.suggest_float("reg_alpha", 1e-4, 10, log=True),
-    "reg_lambda":        trial.suggest_float("reg_lambda", 1e-4, 10, log=True),
-    "random_state": 42,
-}
-```
+**Ý nghĩa:**
 
-**Tham số Optuna cho Ridge:**
+- LGBM: capture nonlinear interactions
+- XGB: học residual patterns khác LGB
+- Ridge: baseline linear stabilizer
+
+---
+
+### 3.3 Predict validation
+
 ```python
-params_ridge = {
-    "alpha": trial.suggest_float("alpha", 0.01, 1000, log=True),
-}
+pred_lgb = lgb_model.predict(X_val)
+pred_xgb = xgb_model.predict(X_val)
+pred_ridge = ridge_model.predict(X_val)
 ```
 
 ---
 
-### 3.2 Cross-Validation Time Series
-
-> Dùng `TimeSeriesSplit` thay vì KFold thông thường để tránh data leakage
+### 3.4 Build meta dataset
 
 ```python
-from sklearn.model_selection import TimeSeriesSplit
-
-tscv = TimeSeriesSplit(n_splits=5, gap=30)  # gap 30 ngày giữa train và val mỗi fold
-```
-
-```
-Fold 1: [2012-2016 train] [gap 30d] [2017 val]
-Fold 2: [2012-2017 train] [gap 30d] [2018 val]
-Fold 3: [2012-2018 train] [gap 30d] [2019 val]
-Fold 4: [2012-2019 train] [gap 30d] [2020 val]
-Fold 5: [2012-2020 train] [gap 30d] [2021 val]
-→ Final eval: val trên năm 2022
+meta_X = np.column_stack([
+    pred_lgb,
+    pred_xgb,
+    pred_ridge
+])
 ```
 
 ---
 
-### 3.3 Stacking Ensemble
+### 3.5 Train meta model
 
 ```python
-from sklearn.linear_model import Ridge
-import numpy as np
-
-# Level 1: predictions trên val set
-pred_lgb_val   = lgb_model.predict(X_val)    # LGB
-pred_xgb_val   = xgb_model.predict(X_val)    # XGBoost
-pred_ridge_val = ridge_model.predict(X_val)  # Ridge
-
-# Stack predictions làm input cho meta-model
-meta_X_val = np.column_stack([pred_lgb_val, pred_xgb_val, pred_ridge_val])
-
-# Level 2: Ridge meta-model
 meta_model = Ridge(alpha=1.0)
-meta_model.fit(meta_X_val, y_val)
+meta_model.fit(meta_X, y_val)
+```
 
-# Final prediction
-final_pred_val = meta_model.predict(meta_X_val)
+**Ý nghĩa:**
+Meta model học: “model nào đáng tin hơn trong từng pattern”
+
+---
+
+## BƯỚC 3.1 — OPTUNA TUNING
+
+### Nguyên tắc
+
+- Tune từng model riêng
+- Không mix target
+- Không tune trên full data
+
+### Objective chuẩn
+
+```python
+def objective(trial):
+    model = LGBMRegressor(
+        n_estimators=trial.suggest_int(100, 1000),
+        learning_rate=trial.suggest_float(0.01, 0.2),
+        num_leaves=trial.suggest_int(20, 200),
+        max_depth=trial.suggest_int(3, 12),
+        subsample=trial.suggest_float(0.6, 1.0),
+        colsample_bytree=trial.suggest_float(0.6, 1.0),
+        random_state=42
+    )
+
+    model.fit(X_train, y_train)
+    preds = model.predict(X_val)
+
+    return mean_absolute_error(y_val, preds)
 ```
 
 ---
 
-### 3.4 Đánh giá trên Validation Set (2022)
+## BƯỚC 3.2 — TIME SERIES CV (CHỈ DÙNG ĐỂ CHECK)
 
 ```python
-def evaluate(y_true, y_pred, label=""):
-    mae  = mean_absolute_error(y_true, y_pred)
-    rmse = mean_squared_error(y_true, y_pred, squared=False)
-    r2   = r2_score(y_true, y_pred)
-    print(f"[{label}] MAE={mae:,.0f} | RMSE={rmse:,.0f} | R²={r2:.4f}")
-    return mae, rmse, r2
-
-evaluate(y_val["Revenue"], final_pred_val_revenue, "Revenue - Ensemble")
-evaluate(y_val["COGS"],    final_pred_val_cogs,    "COGS - Ensemble")
+tscv = TimeSeriesSplit(n_splits=5, gap=30)
 ```
 
-**Ngưỡng chấp nhận (tham khảo):**
-| Chỉ số | Mục tiêu |
-|--------|---------|
-| MAE | < 5% của mean(Revenue) |
-| RMSE | < 10% của mean(Revenue) |
-| R² | > 0.90 |
+**Ý nghĩa đúng:**
+
+- Không dùng để train final
+- Chỉ để:
+  - kiểm tra stability
+  - detect overfitting theo time slice
 
 ---
 
-## Bước 4 — Retrain trên Toàn bộ 2012–2022
+## BƯỚC 3.3 — STACKING PIPELINE CHUẨN
+
+1. Train base models
+2. → Predict validation
+3. → Train meta model
+
+- [x] KHÔNG mix train/val
+- [x] KHÔNG shuffle
+- [x] KHÔNG cross contamination
+
+---
+
+## BƯỚC 3.4 — EVALUATION
+
+- MAE
+- RMSE
+- R²
+
+**Ngưỡng hợp lý:**
+
+- R² > 0.9 → rất tốt cho revenue forecasting
+- MAE giảm ổn định qua CV → model robust
+
+---
+
+## BƯỚC 4 — RETRAIN FINAL MODEL (QUAN TRỌNG NHẤT)
+
+### Mục tiêu
+
+Tận dụng toàn bộ data (2012–2022) để tối đa hóa learning
+
+---
+
+### Full dataset
 
 ```python
-FULL_END = "2022-12-31"
-df_full  = df[df.Date <= FULL_END].dropna(subset=["revenue_lag_365"])
+df_full = df[df.Date <= "2022-12-31"].dropna(subset=["revenue_lag_365"])
 
 X_full = df_full[FEATURES]
 y_full = df_full[TARGETS]
-
-# Retrain với best params tìm được ở bước 3
-lgb_final_rev   = LGBMRegressor(**best_lgb_rev_params, random_state=42)
-xgb_final_rev   = XGBRegressor(**best_xgb_rev_params, random_state=42)
-ridge_final_rev = Ridge(**best_ridge_rev_params)
-
-lgb_final_rev.fit(X_full, y_full["Revenue"])
-xgb_final_rev.fit(X_full, y_full["Revenue"])
-ridge_final_rev.fit(X_full, y_full["Revenue"])
-
-# Tương tự cho COGS
 ```
+
+---
+
+### Train final models
+
+```python
+lgb_final = LGBMRegressor(**best_lgb_params)
+xgb_final = XGBRegressor(**best_xgb_params)
+ridge_final = Ridge(**best_ridge_params)
+
+lgb_final.fit(X_full, y_full["Revenue"])
+xgb_final.fit(X_full, y_full["Revenue"])
+ridge_final.fit(X_full, y_full["Revenue"])
+```
+
+---
+
+### Meta model (có 2 lựa chọn)
+
+- **Option A:** giữ meta model từ validation
+- **Option B (chuẩn hơn):** retrain meta model trên toàn history predictions
+
+---
+
+## PIPELINE CUỐI CÙNG
+
+### FULL TRAIN PIPELINE
+
+1. Time split (Train: 2012–2021, Val: 2022)
+2. Feature engineering (freeze trước split)
+3. Train base models (LGB / XGB / Ridge)
+4. Predict validation
+5. Train meta model (stacking layer)
+6. Hyperparameter tuning (Optuna)
+7. Retrain full dataset (2012–2022)
+8. Freeze model
+9. Inference on test set (2023–2024)
 
 ---
 
@@ -673,12 +709,12 @@ print(df_submission.head())
 
 ## Tóm tắt Files cần tạo
 
-| File | Nội dung |
-|------|---------|
-| `feature_engineering.py` | Toàn bộ logic build features (Nhóm A–G) |
-| `model.py` | Train base models, Optuna tuning, stacking ensemble |
-| `predict.py` | Recursive forecasting + xuất submission.csv |
-| `submission.csv` | File nộp Kaggle cuối cùng |
+| File                     | Nội dung                                            |
+| ------------------------ | --------------------------------------------------- |
+| `feature_engineering.py` | Toàn bộ logic build features (Nhóm A–G)             |
+| `model.py`               | Train base models, Optuna tuning, stacking ensemble |
+| `predict.py`             | Recursive forecasting + xuất submission.csv         |
+| `submission.csv`         | File nộp Kaggle cuối cùng                           |
 
 ---
 
