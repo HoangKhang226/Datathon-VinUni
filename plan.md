@@ -12,7 +12,7 @@
 
 ---
 
-## Bước 0 — EDA & Phân tích Dữ liệu (60 điểm — Phần 2 đề thi)
+## Bước 0 — EDA
 
 ### Kết quả EDA thực tế
 
@@ -230,10 +230,7 @@ df_reviews     = pd.read_csv("Data/reviews.csv",     parse_dates=["review_date"]
 | `cogs_roll_mean_7` | 7 ngày | |
 | `cogs_roll_mean_30` | 30 ngày | |
 
-> ⚠️ **Quan trọng:** Phải dùng `.shift(1)` trước khi rolling để đảm bảo không dùng giá trị ngày T khi tính feature cho ngày T.
-> ```python
-> df["revenue_roll_mean_7"] = df["Revenue"].shift(1).rolling(7).mean()
-> ```
+> ⚠️ **Quan trọng:** Dùng `.shift(1)` trước khi rolling để đảm bảo không dùng giá trị ngày T khi tính feature cho ngày T.
 
 **Exponential Weighted Mean:**
 
@@ -260,8 +257,8 @@ df_reviews     = pd.read_csv("Data/reviews.csv",     parse_dates=["review_date"]
 
 | Feature | Điều kiện | Ghi chú |
 |---------|-----------|---------|
-| `is_tet_period` | Khoảng -15 đến +5 ngày so với Tết âm lịch | Dùng thư viện `holidays` hoặc hard-code |
-| `days_to_tet` | Số ngày đến Tết gần nhất | Âm nếu đã qua Tết |
+| `is_tet_period` | T1 (ngày 15-31) hoặc T2 (≤ ngày 15) | Hard-code gần đúng Tết âm lịch |
+| `days_to_tet` | Số ngày đến Tết gần nhất | Danh sách ngày Tết 2012-2024 |
 | `is_1111` | `month==11 & day==11` | Ngày hội mua sắm |
 | `is_1212` | `month==12 & day==12` | |
 | `is_black_friday` | Thứ 6 tuần 4 tháng 11 | |
@@ -270,125 +267,82 @@ df_reviews     = pd.read_csv("Data/reviews.csv",     parse_dates=["review_date"]
 | `is_christmas` | `month==12 & day >= 23` | |
 | `is_valentines` | `month==2 & day >= 10 & day <= 14` | |
 | `is_womens_day` | `month==3 & day==8` | |
+| `is_new_year` | `month==1 & day <= 3` | Dương lịch | |
+
+> ❌ `is_high_revenue_day` đã bị xóa — **data leakage**: dùng `Revenue` hiện tại (target) để tạo feature, không có trong tập test 2023-2024.
+
 
 ---
 
-### 1.5 Nhóm D — Transaction Aggregates (chỉ dùng cho tập train 2012-2022)
+### 1.5 Nhóm D — Transaction Aggregates
 
 > Nguồn: `orders.csv`, `order_items.csv`, `payments.csv`, `returns.csv`, `reviews.csv`
-> Merge vào `df` theo ngày — sẽ bị NaN với tập test, cần fill bằng lag_365
+> Merge vào `df` theo ngày — sẽ bị NaN với tập test, cần fill bằng lag\_365
 
-**Tạo daily_transaction_features:**
+| Feature | Cách tạo | Ý nghĩa | Ghi chú |
+|---------|----------|---------|--------|
+| `daily_order_count` | `orders.groupby(order_date).count()` | Số đơn hàng trong ngày | |
+| `daily_cancel_rate` | `cancel_count / order_count` | Tỷ lệ hủy đơn | `daily_cancel_count` bị bỏ — redundant |
+| `daily_items_sold` | `order_items.groupby(order_date)[quantity].sum()` | Tổng số sản phẩm bán | |
+| `daily_discount_total` | `order_items.groupby(order_date)[discount_amount].sum()` | Tổng tiền giảm giá | |
+| `daily_promo_rate` | `promo_id.notna().mean()` per day | Tỷ lệ đơn có mã KM | |
+| `daily_avg_payment` | `payments.groupby(order_date)[payment_value].mean()` | Giá trị thanh toán TB | |
+| `daily_return_count` | `returns.groupby(return_date).count()` | Số sản phẩm trả lại | |
+| `daily_refund_total` | `returns.groupby(return_date)[refund_amount].sum()` | Tổng tiền hoàn | |
+| `daily_avg_rating` | `reviews.groupby(review_date)[rating].mean()` | Đánh giá TB trong ngày | |
+| `daily_review_count` | `reviews.groupby(review_date).count()` | Số review trong ngày | |
 
-```python
-# Từ orders.csv
-daily_orders = df_orders.groupby("order_date").agg(
-    daily_order_count  = ("order_id", "count"),
-    daily_cancel_count = ("order_status", lambda x: (x == "cancelled").sum()),
-).reset_index().rename(columns={"order_date": "Date"})
-
-daily_orders["daily_cancel_rate"] = daily_orders["daily_cancel_count"] / daily_orders["daily_order_count"]
-
-# Từ order_items.csv (join với orders để lấy order_date)
-items_with_date = df_items.merge(df_orders[["order_id","order_date"]], on="order_id")
-daily_items = items_with_date.groupby("order_date").agg(
-    daily_items_sold     = ("quantity", "sum"),
-    daily_discount_total = ("discount_amount", "sum"),
-    daily_promo_rate     = ("promo_id", lambda x: x.notna().mean()),
-).reset_index().rename(columns={"order_date": "Date"})
-
-# Từ payments.csv (join với orders)
-pay_with_date = df_payments.merge(df_orders[["order_id","order_date"]], on="order_id")
-daily_pay = pay_with_date.groupby("order_date").agg(
-    daily_avg_payment = ("payment_value", "mean"),
-).reset_index().rename(columns={"order_date": "Date"})
-
-# Từ returns.csv
-daily_returns = df_returns.groupby("return_date").agg(
-    daily_return_count  = ("return_id", "count"),
-    daily_refund_total  = ("refund_amount", "sum"),
-).reset_index().rename(columns={"return_date": "Date"})
-
-# Từ reviews.csv
-daily_reviews = df_reviews.groupby("review_date").agg(
-    daily_avg_rating = ("rating", "mean"),
-    daily_review_count = ("review_id", "count"),
-).reset_index().rename(columns={"review_date": "Date"})
-```
-
-**Merge tất cả vào df chính:**
-```python
-for dft in [daily_orders, daily_items, daily_pay, daily_returns, daily_reviews]:
-    df = df.merge(dft, on="Date", how="left")
-```
-
-**Fill NaN cho tập test (lag_365):**
-```python
-transaction_cols = ["daily_order_count", "daily_cancel_rate", "daily_items_sold", ...]
-for col in transaction_cols:
-    df[col] = df[col].fillna(df[col].shift(365))
-```
+> **Xử lý NaN tập test:** Fill bằng `lag_365` (cùng kỳ năm trước), nếu vẫn NaN thì fill median.
 
 ---
+
 
 ### 1.6 Nhóm E — Web Traffic Features
 
 > Nguồn: `web_traffic.csv` — aggregate theo ngày
+> **Kết quả EDA:** Chỉ giữ 3 features có r≈0.32; bỏ `avg_bounce_rate` và `avg_session_dur` (r≈0.02)
 
-```python
-daily_web = df_web.groupby("date").agg(
-    daily_sessions          = ("sessions", "sum"),
-    daily_unique_visitors   = ("unique_visitors", "sum"),
-    daily_page_views        = ("page_views", "sum"),
-    daily_avg_bounce_rate   = ("bounce_rate", "mean"),
-    daily_avg_session_dur   = ("avg_session_duration_sec", "mean"),
-).reset_index().rename(columns={"date": "Date"})
+| Feature | Cách tạo | Ý nghĩa | Ghi chú |
+|---------|----------|---------|--------|
+| `daily_sessions` | `web_traffic.groupby(date)[sessions].sum()` | Tổng phiên truy cập trong ngày | r=0.32 |
+| `daily_unique_visitors` | `web_traffic.groupby(date)[unique_visitors].sum()` | Lượt khách duy nhất | r=0.32 |
+| `daily_page_views` | `web_traffic.groupby(date)[page_views].sum()` | Tổng lượt xem trang | r=0.30 |
 
-df = df.merge(daily_web, on="Date", how="left")
-# Fill NaN bằng lag_365
-```
+> **Xử lý NaN (181 ngày thiếu):** Fill bằng `lag_365` trước, sau đó fill median nếu vẫn NaN.
+> Web traffic **không phải leading indicator** — chỉ phản ánh seasonality chung, dùng như feature bổ trợ cùng ngày.
 
 ---
 
+
 ### 1.7 Nhóm F — Inventory Features (theo tháng)
 
-> Nguồn: `inventory.csv` — snapshot cuối tháng, forward fill sang các ngày trong tháng
+> Nguồn: `inventory.csv` — snapshot cuối tháng, merge theo `year` + `month`
 
-```python
-monthly_inv = df_inventory.groupby(["year","month"]).agg(
-    monthly_total_stock      = ("stock_on_hand", "sum"),
-    monthly_stockout_count   = ("stockout_flag", "sum"),
-    monthly_avg_fill_rate    = ("fill_rate", "mean"),
-    monthly_avg_sell_through = ("sell_through_rate", "mean"),
-    monthly_total_units_sold = ("units_sold", "sum"),
-).reset_index()
+| Feature | Cách tạo | Ý nghĩa | Ghi chú |
+|---------|----------|---------|--------|
+| `monthly_total_stock` | `inventory.groupby([year,month])[stock_on_hand].sum()` | Tổng hàng tồn kho | |
+| `monthly_stockout_count` | `inventory.groupby([year,month])[stockout_flag].sum()` | Số sản phẩm hết hàng | |
+| `monthly_avg_fill_rate` | `inventory.groupby([year,month])[fill_rate].mean()` | Tỷ lệ đáp ứng TB | |
+| `monthly_avg_sell_through` | `inventory.groupby([year,month])[sell_through_rate].mean()` | Tỷ lệ bán hết hàng TB | |
+| `monthly_total_units_sold` | `inventory.groupby([year,month])[units_sold].sum()` | Tổng số đơn vị bán | |
 
-df["year"]  = df.Date.dt.year
-df["month"] = df.Date.dt.month
-df = df.merge(monthly_inv, on=["year","month"], how="left")
-```
+> Merge vào df chính theo key `[year, month]` — mọi ngày trong cùng tháng nhận cùng giá trị.
 
 ---
 
 ### 1.8 Nhóm G — Promotion Features
 
-> Nguồn: `promotions.csv` — tính theo từng ngày
+> Nguồn: `promotions.csv` — tính theo từng ngày (apply theo date range)
 
-```python
-def get_active_promos(date, df_promos):
-    active = df_promos[(df_promos.start_date <= date) & (df_promos.end_date >= date)]
-    return pd.Series({
-        "active_promo_count":    len(active),
-        "avg_discount_value":    active.discount_value.mean() if len(active) > 0 else 0,
-        "has_pct_promo":         int((active.promo_type == "percentage").any()),
-        "has_fixed_promo":       int((active.promo_type == "fixed").any()),
-    })
-
-promo_features = df.Date.apply(lambda d: get_active_promos(d, df_promotions))
-df = pd.concat([df, promo_features], axis=1)
-```
+| Feature | Cách tạo | Ý nghĩa | Ghi chú |
+|---------|----------|---------|--------|
+| `active_promo_count` | Đếm promo có `start_date <= date <= end_date` | Số chương trình KM đang chạy | |
+| `avg_discount_value` | Mean `discount_value` của promo đang chạy | Mức giảm giá trung bình | 0 nếu không có promo |
+| `has_pct_promo` | `promo_type == "percentage"` có hay không | Có KM theo % hay không | Binary 0/1 |
+| `has_fixed_promo` | `promo_type == "fixed"` có hay không | Có KM cố định hay không | Binary 0/1 |
 
 ---
+
 
 ## Bước 2 — Chia Train / Validation
 
