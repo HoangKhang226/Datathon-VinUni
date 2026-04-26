@@ -5,7 +5,7 @@ Hệ thống dự báo Revenue & COGS sử dụng mô hình **Stacking Ensemble*
 ## Cấu trúc Dự án
 
 ```text
-project/
+Datathon-VinUni/
  ├── data/                # Chứa các file CSV đầu vào (sales.csv, orders.csv, ...)
  ├── src/
  │   ├── data_loader.py   # Load dữ liệu từ CSV
@@ -14,7 +14,6 @@ project/
  │   ├── models.py        # Định nghĩa các model Level 0 và Level 1
  │   ├── cv.py            # Logic Optuna tuning và OOF predictions (Cross-Validation)
  │   └── utils.py         # Tiện ích (Logging, Evaluation, SHAP plots)
- ├── configs/             # Cấu hình model/pipeline
  ├── models/              # Lưu trữ artifact model trained (.pkl)
  ├── logs/                # Lưu trữ file log quá trình huấn luyện
  ├── notebooks/           # Jupyter Notebook dùng cho EDA và thử nghiệm
