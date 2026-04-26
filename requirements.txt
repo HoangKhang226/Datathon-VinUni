@@ -1,5 +1,5 @@
 # ── Core Data Science ──────────────────────────────────────────────
-numpy>=1.26.0
+numpy==1.26.0
 pandas>=2.2.0
 scipy>=1.13.0
 
@@ -20,6 +20,13 @@ mapie>=0.8.0                 # Conformal prediction / quantile intervals
 
 # ── Hyperparameter Tuning ──────────────────────────────────────────
 optuna>=3.6.0                # Bayesian hyperparameter optimisation
+optuna-integration>=3.6.0   # LightGBMPruningCallback & other integrations
+
+# ── Experiment Tracking ────────────────────────────────────────────
+mlflow>=2.13.0               # Experiment tracking, model registry, artifact logging
+
+# ── Model Interpretation ──────────────────────────────────────────
+shap>=0.45.0                 # SHAP (SHapley Additive exPlanations)
 
 # ── Visualisation ──────────────────────────────────────────────────
 matplotlib>=3.8.0
@@ -27,8 +34,8 @@ seaborn>=0.13.0
 plotly>=5.20.0
 
 # ── Notebook / Development ─────────────────────────────────────────────────────
-# jupyter>=1.0.0    # Uncomment if needed (requires Windows Long Path enabled)
-# ipykernel>=6.29.0 # Uncomment if needed (requires Windows Long Path enabled)
+jupyter>=1.0.0    # Uncomment if needed (requires Windows Long Path enabled)
+ipykernel>=6.29.0 # Uncomment if needed (requires Windows Long Path enabled)
 tqdm>=4.66.0
 
 # ── Utilities ──────────────────────────────────────────────────────

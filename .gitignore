@@ -1,2 +1,28 @@
+# ── Environments ───────────────────────────────
 .venv
+venv/
 
+# ── Logs ────────────────────────────────────────
+logs/
+*.log
+
+# ── MLflow tracking ─────────────────────────────
+mlruns/
+mlartifacts/
+logs/
+*.log
+
+# ── Trained models & artefacts ──────────────────
+models/
+*.pkl
+*.joblib
+
+# ── Data output ─────────────────────────────────
+train_features.csv
+*.png
+
+# ── Python ──────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.ipynb_checkpoints/
