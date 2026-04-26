@@ -21,7 +21,8 @@ from sklearn.preprocessing import StandardScaler
 from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 
-# ── Feature & Target definitions ─────────────────────────────────────────────
+# --------- Feature & Target definitions ---------
+
 
 FEATURES: list[str] = [
     # Đặc trưng thời gian (calendar)
@@ -54,7 +55,8 @@ FEATURES: list[str] = [
 TARGETS: list[str] = ["Revenue", "COGS"]
 
 
-# ── Model factory ─────────────────────────────────────────────────────────────
+# --------- Model factory ---------
+
 
 def build_lgb(params: dict) -> LGBMRegressor:
     """Tạo LGBMRegressor với params đã tune. verbose=-1 để tắt log của LGB."""
@@ -79,7 +81,8 @@ def build_meta() -> Ridge:
     return Ridge(alpha=1.0)
 
 
-# ── Inference ─────────────────────────────────────────────────────────────────
+# --------- Inference ---------
+
 
 def stack_predict(
     X,

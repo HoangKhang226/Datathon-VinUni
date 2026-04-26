@@ -13,7 +13,8 @@ import logging
 from pathlib import Path
 
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# --------- Logging ---------
+
 
 def setup_logging(log_file: str = "logs/train.log") -> logging.Logger:
     """
@@ -43,7 +44,8 @@ def setup_logging(log_file: str = "logs/train.log") -> logging.Logger:
     return log
 
 
-# ── Metrics ───────────────────────────────────────────────────────────────────
+# --------- Evaluation ---------
+
 
 def evaluate(y_true, y_pred, label: str = "", log: logging.Logger | None = None) -> dict:
     """
@@ -72,7 +74,8 @@ def evaluate(y_true, y_pred, label: str = "", log: logging.Logger | None = None)
     return dict(mae=mae, rmse=rmse, r2=float(r2))
 
 
-# ── SHAP ─────────────────────────────────────────────────────────────────────
+# --------- SHAP Interpretation ---------
+
 
 def log_shap_summary(
     model,
@@ -119,6 +122,5 @@ def log_shap_summary(
     if mlflow is not None:
         mlflow.log_artifact(plot_path, artifact_path="plots")
 
-    plt.show()
     _log(f"[SHAP] {plot_path} saved{' and logged to MLflow' if mlflow else ''}")
     return plot_path

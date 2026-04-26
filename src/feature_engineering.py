@@ -268,7 +268,8 @@ class FeatureEngineer:
         cộng thêm 1 dummy row cho ngày cần dự báo (Revenue=0, COGS=0).
         """
         original_df = self.df          # lưu lại để rollback
-        self.df = df_extended.copy()
+        # Đảm bảo chỉ giữ lại các cột lõi để tránh trùng tên khi build lại
+        self.df = df_extended[["Date", "Revenue", "COGS"]].copy()
 
         # Tính lại toàn bộ features trên df_extended
         self._add_time_features()

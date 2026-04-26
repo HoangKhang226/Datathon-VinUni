@@ -1,9 +1,6 @@
-"""
-src/data_loader.py
-==================
-Load và quản lý toàn bộ các bảng dữ liệu của Datathon 2026.
-(Được trích xuất từ logic trong feature_engineering.py để tuân thủ cấu trúc thư mục)
-"""
+# --------- data_loader.py ---------
+# Load và quản lý toàn bộ các bảng dữ liệu
+
 
 import pandas as pd
 import logging

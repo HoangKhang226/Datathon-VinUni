@@ -26,7 +26,8 @@ from src.utils import setup_logging
 def main(log_file: str = "logs/submit.log") -> None:
     log = setup_logging(log_file)
 
-    # ── 1. Kiểm tra models/ ──────────────────────────────────────────────────
+    # --------- 1. Loading pre-trained models ---------
+
     required = ["lgb_rev", "xgb_rev", "rid_rev", "lgb_cogs", "xgb_cogs",
                 "rid_cogs", "meta_rev", "meta_cogs", "scaler"]
     for name in required:
@@ -45,17 +46,21 @@ def main(log_file: str = "logs/submit.log") -> None:
     meta_final_rev  = joblib.load("models/meta_rev.pkl")
     meta_final_cogs = joblib.load("models/meta_cogs.pkl")
     scaler_f        = joblib.load("models/scaler.pkl")
-    log.info("Đã load tất cả models từ models/")
+    log.info("--------- loaded all models ---------")
 
-    # ── 2. Load data & build features ───────────────────────────────────────
-    log.info("Loading data & building features...")
+
+    # --------- 2. Load data & build features ---------
+
+    log.info("--------- loading data & building features ---------")
+
     data     = DataLoader()
     features = FeatureEngineer(data)
     df       = features.build()
     df_full  = df[df.Date <= "2022-12-31"].dropna(subset=["revenue_lag_365"])
     log.info(f"df_full: {len(df_full):,} rows (lịch sử đến 2022-12-31)")
 
-    # ── 3. Load test dates ───────────────────────────────────────────────────
+    # --------- 3. Load test dates ---------
+
     sub_path = "Data/sample_submission.csv"
     if not os.path.exists(sub_path):
         raise FileNotFoundError(f"Không tìm thấy {sub_path}.")
@@ -65,7 +70,8 @@ def main(log_file: str = "logs/submit.log") -> None:
     log.info(f"Dự báo cho {len(test_dates)} ngày "
              f"(từ {test_dates[0]} đến {test_dates[-1]})")
 
-    # ── 4. Recursive Forecasting Loop ───────────────────────────────────────
+    # --------- 4. Recursive Forecasting Loop ---------
+
     df_extended      = df_full[["Date", "Revenue", "COGS"]].copy()
     predictions_rev  = []
     predictions_cogs = []
@@ -99,7 +105,8 @@ def main(log_file: str = "logs/submit.log") -> None:
         if (i + 1) % 50 == 0:
             log.info(f"  Forecasted {i+1}/{len(test_dates)} days...")
 
-    # ── 5. Xuất submission.csv ───────────────────────────────────────────────
+    # --------- 5. Final Submission ---------
+
     df_submission = pd.DataFrame({
         "Date":    [pd.Timestamp(d).strftime("%Y-%m-%d") for d in test_dates],
         "Revenue": predictions_rev,
@@ -112,7 +119,8 @@ def main(log_file: str = "logs/submit.log") -> None:
             == list(df_sub["Date"].dt.strftime("%Y-%m-%d"))), "Thứ tự ngày không khớp!"
 
     df_submission.to_csv("submission.csv", index=False)
-    log.info("✅ Đã xuất submission.csv")
+    log.info("--------- submission.csv generated ---------")
+
     log.info("\n" + str(df_submission.head()))
 
 

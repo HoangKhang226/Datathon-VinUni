@@ -40,7 +40,8 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 log = logging.getLogger(__name__)
 
 
-# ── Optuna Objectives ─────────────────────────────────────────────────────────
+# --------- Optuna Objectives ---------
+
 
 def objective_lgb(trial, X, y, parent_run_id: str) -> float:
     """
@@ -113,7 +114,8 @@ def objective_xgb(trial, X, y, parent_run_id: str) -> float:
     return cv_mae
 
 
-# ── Tuning Helper ──────────────────────────────────────────────────────────────
+# --------- Tuning Helper ---------
+
 
 def run_tuning(
     objective_fn,
@@ -143,7 +145,8 @@ def run_tuning(
     return study.best_params, study.best_value
 
 
-# ── OOF Generation ─────────────────────────────────────────────────────────────
+# --------- OOF Generation ---------
+
 
 def generate_oof(
     X_train: pd.DataFrame,

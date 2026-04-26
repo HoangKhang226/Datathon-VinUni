@@ -3,7 +3,7 @@ src/train.py
 ============
 Orchestrator chính của pipeline huấn luyện.
 
-Quy trình (phản ánh chính xác notebook train.ipynb):
+Quy trình:
   1. Load & build features từ DataLoader / FeatureEngineer
   2. Chia Train / Validation theo mốc thời gian
   3. Optuna tuning (CV-based, không dùng val set)
@@ -32,14 +32,16 @@ from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
 
-# ── Imports từ các module nội bộ ─────────────────────────────────────────────
+# --------- Imports từ các module ---------
+
 from src.models import FEATURES, TARGETS, build_lgb, build_xgb, stack_predict
 from src.cv     import objective_lgb, objective_xgb, run_tuning, generate_oof
 from src.utils  import evaluate, log_shap_summary, setup_logging
 from src.feature_engineering import DataLoader, FeatureEngineer
 
 
-# ── Config defaults ────────────────────────────────────────────────────────────
+# --------- Config defaults ---------
+
 
 TRAIN_END = "2021-12-31"
 VAL_START = "2022-01-01"
@@ -52,7 +54,8 @@ OOF_FOLDS = 5    # số folds sinh OOF predictions
 MLFLOW_EXPERIMENT = "revenue-cogs-stacking"
 
 
-# ── Main pipeline ──────────────────────────────────────────────────────────────
+# --------- Main pipeline ---------
+
 
 def run(log_file: str = "logs/train.log") -> None:
     """
@@ -61,20 +64,25 @@ def run(log_file: str = "logs/train.log") -> None:
     """
     log = setup_logging(log_file)
 
-    # ── MLflow setup ──────────────────────────────────────────────────────────
+    # --------- MLflow setup ---------
+
     mlflow.set_tracking_uri("mlruns")
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
     log.info(f"MLflow experiment: '{MLFLOW_EXPERIMENT}'")
 
-    # ── 1. Load data ──────────────────────────────────────────────────────────
-    log.info("=== 1. Loading & Building Features ===")
+    # --------- 1. Load data ---------
+
+    log.info("--------- loading features ---------")
+
     data     = DataLoader()
     features = FeatureEngineer(data)
     df       = features.build()
     log.info(f"Dataset: {df.shape[0]:,} rows x {df.shape[1]} cols")
 
-    # ── 2. Split ──────────────────────────────────────────────────────────────
-    log.info(f"=== 2. Time Split — train ≤{TRAIN_END} | val {VAL_START}→{VAL_END} ===")
+    # --------- 2. Split ---------
+
+    log.info(f"--------- time split — train ≤{TRAIN_END} | val {VAL_START}→{VAL_END} ---------")
+
     df_train = df[df.Date <= TRAIN_END]
     df_val   = df[(df.Date >= VAL_START) & (df.Date <= VAL_END)]
     log.info(f"df_train: {len(df_train):,}  |  df_val: {len(df_val):,}")
@@ -84,20 +92,25 @@ def run(log_file: str = "logs/train.log") -> None:
     X_val   = df_val[FEATURES].copy()
     y_val   = df_val[TARGETS].copy()
 
-    # ── Main MLflow run ───────────────────────────────────────────────────────
+    # --------- Main MLflow run ---------
+
     with mlflow.start_run(run_name="stacking_cv_pipeline") as main_run:
         run_id = main_run.info.run_id
         mlflow.set_tags({"model_type": "stacking_diversity_oof", "cv": "3-fold-tscv"})
 
-        # ── 3. Optuna Tuning (CV-based, no val leakage) ───────────────────────
-        log.info("=== 3. Hyperparameter Tuning (Optuna CV) ===")
+        # --------- 3. Optuna Tuning ---------
+
+        log.info("--------- hyperparameter tuning (optuna cv) ---------")
+
         best_lgb_rev,  _ = run_tuning(objective_lgb, X_train, y_train["Revenue"], "LGB-Rev",  N_TRIALS, run_id)
         best_xgb_rev,  _ = run_tuning(objective_xgb, X_train, y_train["Revenue"], "XGB-Rev",  N_TRIALS, run_id)
         best_lgb_cogs, _ = run_tuning(objective_lgb, X_train, y_train["COGS"],    "LGB-Cogs", N_TRIALS, run_id)
         best_xgb_cogs, _ = run_tuning(objective_xgb, X_train, y_train["COGS"],    "XGB-Cogs", N_TRIALS, run_id)
 
-        # ── 4. OOF Generation (Level 0, fold-aware scaling) ───────────────────
-        log.info("=== 4. Generating OOF Predictions ===")
+        # --------- 4. OOF Generation ---------
+
+        log.info("--------- generating oof predictions ---------")
+
         oof_rev, oof_cogs = generate_oof(
             X_train, y_train,
             best_lgb_rev, best_xgb_rev,
@@ -105,8 +118,10 @@ def run(log_file: str = "logs/train.log") -> None:
             n_splits=OOF_FOLDS,
         )
 
-        # ── 5. Train Meta Models (Level 1) ────────────────────────────────────
-        log.info("=== 5. Training Meta Models on OOF ===")
+        # --------- 5. Train Meta Models ---------
+
+        log.info("--------- training meta models on oof ---------")
+
         mask_rev  = oof_rev.notna().all(axis=1)
         meta_rev  = Ridge(alpha=1.0).fit(oof_rev[mask_rev],  y_train["Revenue"][mask_rev])
 
@@ -116,8 +131,10 @@ def run(log_file: str = "logs/train.log") -> None:
         log.info(f"Meta Weights Rev:  {meta_rev.coef_.round(3).tolist()}")
         log.info(f"Meta Weights COGS: {meta_cogs.coef_.round(3).tolist()}")
 
-        # ── 6. Evaluation on Val 2022 ────────────────────────────────────────
-        log.info("=== 6. Evaluation — Validation 2022 ===")
+        # --------- 6. Evaluation on Val 2022 ---------
+
+        log.info("--------- evaluation — validation 2022 ---------")
+
         scaler_val = StandardScaler()
         X_tr_sc    = scaler_val.fit_transform(X_train)
         X_val_sc   = scaler_val.transform(X_val)
@@ -147,8 +164,10 @@ def run(log_file: str = "logs/train.log") -> None:
         mlflow.log_metrics({"val_mae_rev": r_stack["mae"], "val_mae_cogs": c_stack["mae"]})
         log.info(f"MLflow run finished → {run_id}")
 
-    # ── 7. Final Retrain (Full data 2013–2022) ────────────────────────────────
-    log.info("=== 7. Final Retrain on Full Data ===")
+    # --------- 7. Final Retrain ---------
+
+    log.info("--------- final retrain on full data ---------")
+
     df_full = df[df.Date <= FULL_END].dropna(subset=["revenue_lag_365"])
     X_full  = df_full[FEATURES].copy()
     y_full  = df_full[TARGETS].copy()
@@ -184,16 +203,20 @@ def run(log_file: str = "logs/train.log") -> None:
 
         log.info("Final models saved to models/")
 
-    # ── 8. SHAP Interpretation ─────────────────────────────────────────────────
-    log.info("=== 8. SHAP Model Interpretation ===")
+    # --------- 8. SHAP Interpretation ---------
+
+    log.info("--------- shap model interpretation ---------")
+
     with mlflow.start_run(run_name="model_interpretation"):
         log_shap_summary(lgb_rf, X_full, "Revenue", "LGBM", mlflow, log)
         log_shap_summary(lgb_cf, X_full, "COGS",    "LGBM", mlflow, log)
 
     log.info("Pipeline complete ✓")
 
-    # ── 9. Recursive Forecasting & Submission ──────────────────────────────────
-    log.info("=== 9. Recursive Forecasting & Submission ===")
+    # --------- 9. Recursive Forecasting & Submission ---------
+
+    log.info("--------- recursive forecasting & submission ---------")
+
 
     sub_path = "Data/sample_submission.csv"
     if not os.path.exists(sub_path):
