@@ -101,7 +101,7 @@ def run(log_file: str = "logs/train.log") -> None:
         # --------- 3. Optuna Tuning ---------
 
         log.info("--------- hyperparameter tuning (optuna cv) ---------")
-
+        # tìm hyperparameter tối ưu cho LGBM và XGBoost
         best_lgb_rev,  _ = run_tuning(objective_lgb, X_train, y_train["Revenue"], "LGB-Rev",  N_TRIALS, run_id)
         best_xgb_rev,  _ = run_tuning(objective_xgb, X_train, y_train["Revenue"], "XGB-Rev",  N_TRIALS, run_id)
         best_lgb_cogs, _ = run_tuning(objective_lgb, X_train, y_train["COGS"],    "LGB-Cogs", N_TRIALS, run_id)
@@ -110,7 +110,7 @@ def run(log_file: str = "logs/train.log") -> None:
         # --------- 4. OOF Generation ---------
 
         log.info("--------- generating oof predictions ---------")
-
+        # tạo OOF predictions (Out-of-Fold) cho 3 model (LGBM, XGBoost, Ridge)
         oof_rev, oof_cogs = generate_oof(
             X_train, y_train,
             best_lgb_rev, best_xgb_rev,
@@ -122,8 +122,8 @@ def run(log_file: str = "logs/train.log") -> None:
 
         log.info("--------- training meta models on oof ---------")
 
-        mask_rev  = oof_rev.notna().all(axis=1)
-        meta_rev  = Ridge(alpha=1.0).fit(oof_rev[mask_rev],  y_train["Revenue"][mask_rev])
+        mask_rev  = oof_rev.notna().all(axis=1) # mask để loại bỏ các hàng có giá trị NaN
+        meta_rev  = Ridge(alpha=1.0).fit(oof_rev[mask_rev],  y_train["Revenue"][mask_rev]) # train meta model trên OOF predictions
 
         mask_cogs = oof_cogs.notna().all(axis=1)
         meta_cogs = Ridge(alpha=1.0).fit(oof_cogs[mask_cogs], y_train["COGS"][mask_cogs])
@@ -134,11 +134,12 @@ def run(log_file: str = "logs/train.log") -> None:
         # --------- 6. Evaluation on Val 2022 ---------
 
         log.info("--------- evaluation — validation 2022 ---------")
-
+        # scale dữ liệu validation
         scaler_val = StandardScaler()
         X_tr_sc    = scaler_val.fit_transform(X_train)
         X_val_sc   = scaler_val.transform(X_val)
 
+        # train 3 model trên toàn bộ dữ liệu train
         lgb_r = build_lgb(best_lgb_rev).fit(X_train, y_train["Revenue"])
         xgb_r = build_xgb(best_xgb_rev).fit(X_train, y_train["Revenue"])
         rid_r = Ridge(alpha=100.0).fit(X_tr_sc, y_train["Revenue"])
@@ -147,9 +148,11 @@ def run(log_file: str = "logs/train.log") -> None:
         xgb_c = build_xgb(best_xgb_cogs).fit(X_train, y_train["COGS"])
         rid_c = Ridge(alpha=100.0).fit(X_tr_sc, y_train["COGS"])
 
+        # tạo meta features cho validation set, bằng cách dự đoán trên validation set
         val_meta_rev  = np.column_stack([lgb_r.predict(X_val), xgb_r.predict(X_val), rid_r.predict(X_val_sc)])
         val_meta_cogs = np.column_stack([lgb_c.predict(X_val), xgb_c.predict(X_val), rid_c.predict(X_val_sc)])
 
+        # dự đoán bằng meta models
         stack_rev_pred  = meta_rev.predict(val_meta_rev)
         stack_cogs_pred = meta_cogs.predict(val_meta_cogs)
 
