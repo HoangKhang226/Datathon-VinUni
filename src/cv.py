@@ -64,9 +64,11 @@ def objective_lgb(trial, X, y, parent_run_id: str) -> float:
     )
 
     # 3-fold CV — đủ để estimate tốt mà không quá chậm
-    tscv   = TimeSeriesSplit(n_splits=3)
+    tscv   = TimeSeriesSplit(n_splits=3) # chia fold theo time
     scores = []
-    for tr_idx, val_idx in tscv.split(X):
+    for tr_idx, val_idx in tscv.split(X): 
+        # tr_idx: index của tập train (quá khứ)
+        # val_idx: index của tập validation (tương lai)
         m = LGBMRegressor(**params)
         m.fit(X.iloc[tr_idx], y.iloc[tr_idx])
         preds = m.predict(X.iloc[val_idx])
@@ -139,8 +141,8 @@ def run_tuning(
         (best_params, best_cv_mae)
     """
     log.info(f"[Optuna] Tuning {name} — {n_trials} trials")
-    study = optuna.create_study(direction="minimize", sampler=TPESampler(seed=42))
-    study.optimize(lambda t: objective_fn(t, X, y, run_id), n_trials=n_trials)
+    study = optuna.create_study(direction="minimize", sampler=TPESampler(seed=42)) # TPE sampler để tìm hyperparameter tối ưu
+    study.optimize(lambda t: objective_fn(t, X, y, run_id), n_trials=n_trials) # tạo các trial, objective_fn là hàm mục tiêu (objective_lgb hoặc objective_xgb)
     log.info(f"[{name}] Best CV MAE: {study.best_value:,.2f}")
     return study.best_params, study.best_value
 
@@ -183,7 +185,7 @@ def generate_oof(
     oof_rev  = pd.DataFrame(index=X_train.index, columns=["lgb", "xgb", "ridge"], dtype=float)
     oof_cogs = pd.DataFrame(index=X_train.index, columns=["lgb", "xgb", "ridge"], dtype=float)
 
-    for fold, (tr_i, val_i) in enumerate(tscv.split(X_train)):
+    for fold, (tr_i, val_i) in enumerate(tscv.split(X_train)): # fold là số thứ tự của fold (0, 1, 2, 3, 4)
         Xt, Xv   = X_train.iloc[tr_i], X_train.iloc[val_i]
         yt_r, _  = y_train["Revenue"].iloc[tr_i], y_train["Revenue"].iloc[val_i]
         yt_c, _  = y_train["COGS"].iloc[tr_i],    y_train["COGS"].iloc[val_i]
@@ -197,17 +199,17 @@ def generate_oof(
         m_lgb = LGBMRegressor(**best_lgb_rev, random_state=42, n_jobs=-1, verbose=-1).fit(Xt, yt_r)
         m_xgb = XGBRegressor(**best_xgb_rev, random_state=42, n_jobs=-1, tree_method="hist").fit(Xt, yt_r)
         m_rid = Ridge(alpha=100.0).fit(Xt_sc, yt_r)
-        oof_rev.iloc[val_i, 0] = m_lgb.predict(Xv)
-        oof_rev.iloc[val_i, 1] = m_xgb.predict(Xv)
-        oof_rev.iloc[val_i, 2] = m_rid.predict(Xv_sc)
+        oof_rev.iloc[val_i, 0] = m_lgb.predict(Xv) # dự đoán trên validation fold
+        oof_rev.iloc[val_i, 1] = m_xgb.predict(Xv) # dự đoán trên validation fold
+        oof_rev.iloc[val_i, 2] = m_rid.predict(Xv_sc) # dự đoán trên validation fold
 
         # COGS — Level 0
         m_lgb = LGBMRegressor(**best_lgb_cogs, random_state=42, n_jobs=-1, verbose=-1).fit(Xt, yt_c)
         m_xgb = XGBRegressor(**best_xgb_cogs, random_state=42, n_jobs=-1, tree_method="hist").fit(Xt, yt_c)
         m_rid = Ridge(alpha=100.0).fit(Xt_sc, yt_c)
-        oof_cogs.iloc[val_i, 0] = m_lgb.predict(Xv)
-        oof_cogs.iloc[val_i, 1] = m_xgb.predict(Xv)
-        oof_cogs.iloc[val_i, 2] = m_rid.predict(Xv_sc)
+        oof_cogs.iloc[val_i, 0] = m_lgb.predict(Xv) # dự đoán trên validation fold
+        oof_cogs.iloc[val_i, 1] = m_xgb.predict(Xv) # dự đoán trên validation fold
+        oof_cogs.iloc[val_i, 2] = m_rid.predict(Xv_sc) # dự đoán trên validation fold
 
         log.info(f"  [OOF] Fold {fold + 1}/{n_splits} done")
 
